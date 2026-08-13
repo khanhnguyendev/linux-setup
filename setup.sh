@@ -187,17 +187,28 @@ else
     fi
 fi
 
-if ! grep -q 'NVM_DIR' "$TARGET_HOME/.zshrc" 2>/dev/null; then
-    info "appending nvm init to .zshrc"
-    sudo -u "$TARGET_USER" tee -a "$TARGET_HOME/.zshrc" > /dev/null <<'EOF'
+_rc_block() {
+    local file="$1"
+    if ! grep -q 'NVM_DIR' "$file" 2>/dev/null; then
+        sudo -u "$TARGET_USER" tee -a "$file" > /dev/null <<'EOF'
+
+# PATH
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 
 # nvm
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
 EOF
-    success "nvm init added to .zshrc"
-fi
+        success "PATH + nvm init added to $(basename "$file")"
+    else
+        warn "$(basename "$file") already has nvm block — skipping"
+    fi
+}
+
+info "writing PATH exports to shell rc files"
+_rc_block "$TARGET_HOME/.zshrc"
+_rc_block "$TARGET_HOME/.bashrc"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. summary
