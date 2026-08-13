@@ -27,7 +27,7 @@ warn()    { _log "$YELLOW" "warn"    "$@"; }
 error()   { _log "$RED"    "error"   "$@" >&2; exit 1; }
 step()    { printf "\n${CYAN}${BOLD}[%s/%s] %s${RESET}\n" "$1" "$TOTAL_STEPS" "$2"; }
 
-TOTAL_STEPS=6
+TOTAL_STEPS=7
 
 # ── banner ────────────────────────────────────────────────────────────────────
 printf "${BOLD}"
@@ -119,9 +119,36 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. nvm + node
+# 3. github cli
 # ─────────────────────────────────────────────────────────────────────────────
-step 3 "nvm + Node.js ($NODE_VERSION)"
+step 3 "GitHub CLI (gh)"
+
+info "downloading GitHub CLI apt key"
+if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg; then
+    success "signing key saved"
+else
+    error "failed to download GitHub CLI signing key"
+fi
+
+info "registering apt repository"
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+https://cli.github.com/packages stable main" \
+    | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+apt-get update -qq
+
+info "installing gh"
+if DEBIAN_FRONTEND=noninteractive apt-get install -y gh > /tmp/gh-install.log 2>&1; then
+    success "gh $(gh --version | head -1 | cut -d' ' -f3) installed"
+else
+    error "gh install failed — see /tmp/gh-install.log"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. nvm + node
+# ─────────────────────────────────────────────────────────────────────────────
+step 4 "nvm + Node.js ($NODE_VERSION)"
 
 info "installing nvm for $TARGET_USER"
 if sudo -u "$TARGET_USER" bash -c \
@@ -152,9 +179,9 @@ NODE_VER=$(sudo -u "$TARGET_USER" bash -c "
 success "node $NODE_VER active"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. herdr
+# 5. herdr
 # ─────────────────────────────────────────────────────────────────────────────
-step 4 "herdr"
+step 5 "herdr"
 
 info "running herdr installer"
 if sudo -u "$TARGET_USER" bash -c 'curl -fsSL https://herdr.dev/install.sh | sh'; then
@@ -164,9 +191,9 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. oh-my-zsh
+# 6. oh-my-zsh
 # ─────────────────────────────────────────────────────────────────────────────
-step 5 "oh-my-zsh"
+step 6 "oh-my-zsh"
 
 info "setting zsh as default shell for $TARGET_USER"
 if chsh -s "$(which zsh)" "$TARGET_USER"; then
@@ -211,9 +238,9 @@ _rc_block "$TARGET_HOME/.zshrc"
 _rc_block "$TARGET_HOME/.bashrc"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. summary
+# 7. summary
 # ─────────────────────────────────────────────────────────────────────────────
-step 6 "Summary"
+step 7 "Summary"
 
 printf "\n"
 _log "$BLUE" "shell"    "zsh + oh-my-zsh"
@@ -222,6 +249,7 @@ _log "$BLUE" "python"   "$(python3 --version | cut -d' ' -f2)"
 _log "$BLUE" "java"     "$(java -version 2>&1 | awk -F'"' 'NR==1{print $2}')"
 _log "$BLUE" "node"     "$NODE_VER (via nvm)"
 _log "$BLUE" "claude"   "claude-desktop (apt)"
+_log "$BLUE" "gh"       "$(gh --version 2>/dev/null | head -1 | cut -d' ' -f3)"
 _log "$BLUE" "herdr"    "latest"
 
 printf "\n${GREEN}${BOLD}success  ${RESET}${DIM}|${RESET} machine ready — run: ${BOLD}su - $TARGET_USER${RESET}\n\n"
